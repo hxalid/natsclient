@@ -63,6 +63,7 @@ func NewPublisherWithJS(ctx context.Context, nc *nats.Conn, js jetstream.JetStre
 	if err := streamCfg.Validate(); err != nil {
 		return nil, err
 	}
+
 	_, err := js.Stream(ctx, streamCfg.Name)
 	if err != nil {
 		_, err = js.CreateStream(ctx, streamCfg.ToJetStreamConfig())
@@ -70,6 +71,7 @@ func NewPublisherWithJS(ctx context.Context, nc *nats.Conn, js jetstream.JetStre
 			return nil, fmt.Errorf("failed to create stream: %w", err)
 		}
 	}
+
 	return &Publisher{
 		nc:              nc,
 		js:              js,
@@ -87,14 +89,17 @@ func (p *Publisher) Publish(ctx context.Context, data []byte) error {
 		Header:  nats.Header{"X-Sent-Time": []string{sendTime.Format(time.RFC3339Nano)}},
 		Data:    data,
 	}
+
 	future, err := p.js.PublishMsgAsync(msg)
 	if err != nil {
 		return fmt.Errorf("async publish error: %w", err)
 	}
+
 	p.pendingMu.Lock()
 	p.pending = append(p.pending, &asyncPublishTracker{sendTime, p.topic, future, false})
 	flush := len(p.pending) >= p.batchSize
 	p.pendingMu.Unlock()
+
 	if flush {
 		return p.flush(ctx)
 	}
@@ -104,9 +109,11 @@ func (p *Publisher) Publish(ctx context.Context, data []byte) error {
 func (p *Publisher) flush(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
+
 	select {
 	case <-p.js.PublishAsyncComplete():
 		p.pendingMu.Lock()
+
 		for _, pub := range p.pending {
 			if pub.processed {
 				continue
@@ -122,8 +129,10 @@ func (p *Publisher) flush(ctx context.Context) error {
 			}
 			pub.processed = true
 		}
+
 		p.pending = p.pending[:0]
 		p.pendingMu.Unlock()
+
 	case <-ctx.Done():
 		return ctx.Err()
 	}
@@ -132,13 +141,16 @@ func (p *Publisher) flush(ctx context.Context) error {
 
 func (p *Publisher) Close() error {
 	p.pendingMu.Lock()
+
 	if len(p.pending) > 0 {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		p.pendingMu.Unlock()
 		defer cancel()
+
 		_ = p.flush(ctx)
 	} else {
 		p.pendingMu.Unlock()
 	}
+
 	return p.nc.Drain()
 }
