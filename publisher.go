@@ -29,31 +29,9 @@ type Publisher struct {
 }
 
 func NewPublisher(ctx context.Context, natsURL, domain string, connOpts ConnOptions, streamCfg StreamConfig, topic string, batchSize int, recordLatencyFn func(time.Duration)) (*Publisher, error) {
-	opts := []nats.Option{
-		nats.Name(connOpts.Name),
-		nats.ReconnectWait(connOpts.ReconnectWait),
-		nats.MaxReconnects(connOpts.ReconnectRetries),
-		nats.DisconnectErrHandler(func(nc *nats.Conn, err error) {
-			log.Warn().Err(err).Msg("NATS disconnected")
-		}),
-		nats.ReconnectHandler(func(nc *nats.Conn) {
-			log.Info().Msg("NATS reconnected")
-		}),
-		nats.ErrorHandler(func(nc *nats.Conn, sub *nats.Subscription, err error) {
-			log.Error().Err(err).Str("subject", sub.Subject).Msg("NATS async error")
-		}),
-		nats.UserInfo(connOpts.User, connOpts.Pass),
-	}
-
-	nc, err := nats.Connect(natsURL, opts...)
+	nc, js, err := ConnectJetStream(ctx, natsURL, connOpts, domain)
 	if err != nil {
-		return nil, fmt.Errorf("failed to connect to NATS: %w", err)
-	}
-
-	js, err := jetstream.NewWithDomain(nc, domain)
-	if err != nil {
-		nc.Close()
-		return nil, fmt.Errorf("failed to get JetStream context: %w", err)
+		return nil, err
 	}
 
 	return NewPublisherWithJS(ctx, nc, js, streamCfg, topic, batchSize, recordLatencyFn)

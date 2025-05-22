@@ -7,7 +7,6 @@ import (
 
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
-	"github.com/rs/zerolog/log"
 )
 
 type Consumer struct {
@@ -21,36 +20,15 @@ type Consumer struct {
 }
 
 func NewConsumer(ctx context.Context, natsURL, domain string, connOpts ConnOptions, streamCfg StreamConfig, topic string, batchSize int, config ConsumerConfig, recordLatencyFn func(time.Duration)) (*Consumer, error) {
-	opts := []nats.Option{
-		nats.Name(connOpts.Name),
-		nats.ReconnectWait(connOpts.ReconnectWait),
-		nats.MaxReconnects(connOpts.ReconnectRetries),
-		nats.DisconnectErrHandler(func(nc *nats.Conn, err error) {
-			log.Warn().Err(err).Msg("NATS disconnected")
-		}),
-		nats.ReconnectHandler(func(nc *nats.Conn) {
-			log.Info().Msg("NATS reconnected")
-		}),
-		nats.ErrorHandler(func(nc *nats.Conn, sub *nats.Subscription, err error) {
-			log.Error().Err(err).Str("subject", sub.Subject).Msg("NATS async error")
-		}),
-		nats.UserInfo(connOpts.User, connOpts.Pass),
-	}
-
-	nc, err := nats.Connect(natsURL, opts...)
+	nc, js, err := ConnectJetStream(ctx, natsURL, connOpts, domain)
 	if err != nil {
-		return nil, fmt.Errorf("failed to connect to NATS: %w", err)
-	}
-
-	js, err := jetstream.NewWithDomain(nc, domain)
-	if err != nil {
-		nc.Close()
-		return nil, fmt.Errorf("failed to get JetStream context: %w", err)
+		return nil, err
 	}
 
 	return NewConsumerWithJS(ctx, nc, js, streamCfg, topic, batchSize, config, recordLatencyFn)
 }
 
+// NewConsumerWithJS allows instantiating a Consumer with an existing connection and JS context.
 func NewConsumerWithJS(ctx context.Context, nc *nats.Conn, js jetstream.JetStream, streamCfg StreamConfig, topic string, batchSize int, config ConsumerConfig, recordLatencyFn func(time.Duration)) (*Consumer, error) {
 	if err := streamCfg.Validate(); err != nil {
 		return nil, err

@@ -10,7 +10,8 @@ import (
 )
 
 func main() {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
 	// Settings
 	natsURL := "nats://localhost:4222"
@@ -20,8 +21,8 @@ func main() {
 	streamName := "demo-stream"
 	subject := "demo.subject"
 
+	// Stream and connection config
 	streamCfg := natsclient.DefaultStreamConfig(streamName, []string{subject})
-
 	connOpts := natsclient.DefaultConnOptions("example-client", user, pass)
 
 	publisher, err := natsclient.NewPublisher(ctx, natsURL, domain, connOpts, streamCfg, subject, 10, func(latency time.Duration) {
@@ -50,8 +51,8 @@ func main() {
 		time.Sleep(100 * time.Millisecond)
 	}
 
-	// Give time for server to process
-	time.Sleep(1 * time.Second)
+	// Wait before polling to ensure delivery
+	time.Sleep(500 * time.Millisecond)
 
 	fmt.Println("Consuming...")
 	if err := consumer.Poll(ctx); err != nil {
