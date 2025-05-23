@@ -10,7 +10,7 @@ import (
 )
 
 // ConnectJetStream connects to NATS and initializes JetStream with a domain.
-func ConnectJetStream(ctx context.Context, natsURL string, connOpts ConnOptions, domain string) (*nats.Conn, jetstream.JetStream, error) {
+func ConnectJetStream(ctx context.Context, natsURL string, connOpts *ConnOptions, domain string) (*nats.Conn, jetstream.JetStream, error) {
 	opts := []nats.Option{
 		nats.Name(connOpts.Name),
 		nats.ReconnectWait(connOpts.ReconnectWait),

@@ -85,8 +85,8 @@ func (s *StreamConfig) Validate() error {
 }
 
 // DefaultStreamConfig returns a StreamConfig with sensible defaults
-func DefaultStreamConfig(name string, subjects []string) StreamConfig {
-	return StreamConfig{
+func DefaultStreamConfig(name string, subjects []string) *StreamConfig {
+	return &StreamConfig{
 		Name:      name,
 		Subjects:  subjects,
 		Replicas:  1,
@@ -107,8 +107,8 @@ type ConnOptions struct {
 }
 
 // DefaultConnOptions returns sensible defaults for NATS connection
-func DefaultConnOptions(name, user, pass string) ConnOptions {
-	return ConnOptions{
+func DefaultConnOptions(name, user, pass string) *ConnOptions {
+	return &ConnOptions{
 		Name:             name,
 		ReconnectWait:    5 * time.Second,
 		ReconnectRetries: 10,

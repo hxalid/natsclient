@@ -19,7 +19,7 @@ type Consumer struct {
 	recordLatencyFn func(time.Duration)
 }
 
-func NewConsumer(ctx context.Context, natsURL, domain string, connOpts ConnOptions, streamCfg StreamConfig, topic string, batchSize int, config ConsumerConfig, recordLatencyFn func(time.Duration)) (*Consumer, error) {
+func NewConsumer(ctx context.Context, natsURL, domain string, connOpts *ConnOptions, streamCfg *StreamConfig, topic string, batchSize int, config ConsumerConfig, recordLatencyFn func(time.Duration)) (*Consumer, error) {
 	nc, js, err := ConnectJetStream(ctx, natsURL, connOpts, domain)
 	if err != nil {
 		return nil, err
@@ -29,17 +29,9 @@ func NewConsumer(ctx context.Context, natsURL, domain string, connOpts ConnOptio
 }
 
 // NewConsumerWithJS allows instantiating a Consumer with an existing connection and JS context.
-func NewConsumerWithJS(ctx context.Context, nc *nats.Conn, js jetstream.JetStream, streamCfg StreamConfig, topic string, batchSize int, config ConsumerConfig, recordLatencyFn func(time.Duration)) (*Consumer, error) {
+func NewConsumerWithJS(ctx context.Context, nc *nats.Conn, js jetstream.JetStream, streamCfg *StreamConfig, topic string, batchSize int, config ConsumerConfig, recordLatencyFn func(time.Duration)) (*Consumer, error) {
 	if err := streamCfg.Validate(); err != nil {
 		return nil, err
-	}
-
-	_, err := js.Stream(ctx, streamCfg.Name)
-	if err != nil {
-		_, err = js.CreateStream(ctx, streamCfg.ToJetStreamConfig())
-		if err != nil {
-			return nil, fmt.Errorf("failed to create stream: %w", err)
-		}
 	}
 
 	jsConfig := config.ToJetStreamConfig(topic)

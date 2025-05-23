@@ -13,7 +13,6 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	// Settings
 	natsURL := "nats://localhost:4222"
 	user := "acc"
 	pass := "acc"
@@ -21,11 +20,22 @@ func main() {
 	streamName := "demo-stream"
 	subject := "demo.subject"
 
-	// Stream and connection config
 	streamCfg := natsclient.DefaultStreamConfig(streamName, []string{subject})
 	connOpts := natsclient.DefaultConnOptions("example-client", user, pass)
 
-	publisher, err := natsclient.NewPublisher(ctx, natsURL, domain, connOpts, streamCfg, subject, 10, func(latency time.Duration) {
+	// Ensure stream exists before creating publisher/consumer
+	nc, js, err := natsclient.ConnectJetStream(ctx, natsURL, connOpts, domain)
+	if err != nil {
+		log.Fatalf("Failed to connect to JetStream: %v", err)
+	}
+	defer nc.Drain()
+
+	if err := natsclient.EnsureStreamExists(ctx, js, streamCfg); err != nil {
+		log.Fatalf("Failed to ensure stream exists: %v", err)
+	}
+
+	// Create publisher and consumer
+	publisher, err := natsclient.NewPublisherWithJS(ctx, nc, js, streamCfg, subject, 10, func(latency time.Duration) {
 		fmt.Printf("Write latency: %v\n", latency)
 	})
 	if err != nil {
@@ -34,7 +44,7 @@ func main() {
 	defer publisher.Close()
 
 	consumerCfg := natsclient.DefaultConsumerConfig(subject)
-	consumer, err := natsclient.NewConsumer(ctx, natsURL, domain, connOpts, streamCfg, subject, 10, consumerCfg, func(latency time.Duration) {
+	consumer, err := natsclient.NewConsumerWithJS(ctx, nc, js, streamCfg, subject, 10, consumerCfg, func(latency time.Duration) {
 		fmt.Printf("Read latency: %v\n", latency)
 	})
 	if err != nil {

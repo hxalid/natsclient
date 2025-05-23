@@ -28,7 +28,7 @@ type Publisher struct {
 	recordLatencyFn func(time.Duration)
 }
 
-func NewPublisher(ctx context.Context, natsURL, domain string, connOpts ConnOptions, streamCfg StreamConfig, topic string, batchSize int, recordLatencyFn func(time.Duration)) (*Publisher, error) {
+func NewPublisher(ctx context.Context, natsURL, domain string, connOpts *ConnOptions, streamCfg *StreamConfig, topic string, batchSize int, recordLatencyFn func(time.Duration)) (*Publisher, error) {
 	nc, js, err := ConnectJetStream(ctx, natsURL, connOpts, domain)
 	if err != nil {
 		return nil, err
@@ -37,17 +37,9 @@ func NewPublisher(ctx context.Context, natsURL, domain string, connOpts ConnOpti
 	return NewPublisherWithJS(ctx, nc, js, streamCfg, topic, batchSize, recordLatencyFn)
 }
 
-func NewPublisherWithJS(ctx context.Context, nc *nats.Conn, js jetstream.JetStream, streamCfg StreamConfig, topic string, batchSize int, recordLatencyFn func(time.Duration)) (*Publisher, error) {
+func NewPublisherWithJS(ctx context.Context, nc *nats.Conn, js jetstream.JetStream, streamCfg *StreamConfig, topic string, batchSize int, recordLatencyFn func(time.Duration)) (*Publisher, error) {
 	if err := streamCfg.Validate(); err != nil {
 		return nil, err
-	}
-
-	_, err := js.Stream(ctx, streamCfg.Name)
-	if err != nil {
-		_, err = js.CreateStream(ctx, streamCfg.ToJetStreamConfig())
-		if err != nil {
-			return nil, fmt.Errorf("failed to create stream: %w", err)
-		}
 	}
 
 	return &Publisher{
