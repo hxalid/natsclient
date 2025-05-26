@@ -55,12 +55,7 @@ func NewConsumerWithJS(ctx context.Context, nc *nats.Conn, js jetstream.JetStrea
 }
 
 func (c *Consumer) Poll(ctx context.Context) error {
-	msgs, err := c.cons.Fetch(c.batchSize)
-	if err != nil {
-		return fmt.Errorf("fetch failed: %w", err)
-	}
-
-	for msg := range msgs.Messages() {
+	return c.PollWithHandler(ctx, func(msg jetstream.Msg) error {
 		if c.recordLatencyFn != nil {
 			if meta, err := msg.Metadata(); err == nil && meta != nil {
 				c.recordLatencyFn(time.Since(meta.Timestamp))
@@ -69,6 +64,20 @@ func (c *Consumer) Poll(ctx context.Context) error {
 					c.recordLatencyFn(time.Since(t))
 				}
 			}
+		}
+		return nil
+	})
+}
+
+func (c *Consumer) PollWithHandler(ctx context.Context, handle func(msg jetstream.Msg) error) error {
+	msgs, err := c.cons.Fetch(c.batchSize)
+	if err != nil {
+		return fmt.Errorf("fetch failed: %w", err)
+	}
+
+	for msg := range msgs.Messages() {
+		if err := handle(msg); err != nil {
+			return err
 		}
 		_ = msg.Ack()
 	}
