@@ -52,11 +52,27 @@ func NewPublisherWithJS(ctx context.Context, nc *nats.Conn, js jetstream.JetStre
 	}, nil
 }
 
+// Publish publishes a message with no custom headers.
 func (p *Publisher) Publish(ctx context.Context, data []byte) error {
+	return p.publishInternal(ctx, data, nil)
+}
+
+// PublishWithHeaders publishes a message with custom headers.
+func (p *Publisher) PublishWithHeaders(ctx context.Context, data []byte, headers nats.Header) error {
+	return p.publishInternal(ctx, data, headers)
+}
+
+func (p *Publisher) publishInternal(ctx context.Context, data []byte, headers nats.Header) error {
 	sendTime := time.Now()
+
+	if headers == nil {
+		headers = nats.Header{}
+	}
+	headers.Set("X-Sent-Time", sendTime.Format(time.RFC3339Nano))
+
 	msg := &nats.Msg{
 		Subject: p.topic,
-		Header:  nats.Header{"X-Sent-Time": []string{sendTime.Format(time.RFC3339Nano)}},
+		Header:  headers,
 		Data:    data,
 	}
 
