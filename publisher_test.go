@@ -28,9 +28,6 @@ func TestPublisher_PublishAndFlush(t *testing.T) {
 	_, err = js.Stream(ctx, streamName)
 	assert.NoError(t, err)
 
-	_, err = js.CreateOrUpdateStream(ctx, streamCfg.ToJetStreamConfig())
-	assert.NoError(t, err)
-
 	publisher, err := natsclient.NewPublisherWithJS(ctx, nc, js, streamCfg, subject, 2, nil)
 	assert.NoError(t, err)
 	defer publisher.Close()
